@@ -10,6 +10,11 @@
 #include <vector>
 
 namespace lve{
+    struct SimplePushConstantData {
+    glm::vec2 offset;
+    alignas(16) glm::vec3 color;
+    };
+
     class FirstAPP{
         public:
         FirstAPP();
