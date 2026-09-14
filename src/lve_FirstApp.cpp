@@ -54,6 +54,9 @@ namespace lve {
     }
 
      void FirstAPP::createPipeline() {
+        assert(lveSwapChain != nullptr && "交换链未创建");
+        assert(pipelineLayout != nullptr && "管道布局未创建");
+
         PipelineConfigInfo pipelineConfig{};
         LvePipeline::defaultPipelineConfigInfo(pipelineConfig);
         pipelineConfig.renderPass = lveSwapChain->getRenderPass();
@@ -75,8 +78,16 @@ namespace lve {
             glfwWaitEvents();
         }
         vkDeviceWaitIdle(lveDevice.device());
-        lveSwapChain.reset();
+
+        if(lveSwapChain == nullptr) {
         lveSwapChain = std::make_unique<LveSwapChain>(lveDevice, extent);
+        } else {
+            lveSwapChain = std::make_unique<LveSwapChain>(lveDevice, extent, std::move(lveSwapChain));
+            if (lveSwapChain->imageCount() != commandBuffers.size()) {
+                freeCommandBuffers();
+                createCommandBuffers();
+            }
+        }
         createPipeline();
      }
      
@@ -96,6 +107,16 @@ namespace lve {
         for (int i = 0; i<commandBuffers.size(); i++) {
            
         }
+    }
+
+    void FirstAPP::freeCommandBuffers()
+    {
+        vkFreeCommandBuffers(
+            lveDevice.device(), 
+            lveDevice.getCommandPool(), 
+            static_cast<uint32_t>(commandBuffers.size()), 
+            commandBuffers.data());
+        commandBuffers.clear();
     }
 
     void FirstAPP::recordCommandBuffer(int imageIndex) {
