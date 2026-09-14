@@ -1,0 +1,22 @@
+# 构建产物
+build/
+build-*/
+out/
+*.spv
+compile_commands.json
+.cache/
+
+# IDE / 编辑器
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.user
+*.suo
+
+# 系统
+Thumbs.db
+desktop.ini
