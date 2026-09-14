@@ -4,6 +4,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 #include <stdexcept>
 #include <cassert>
@@ -11,7 +12,7 @@
 
 namespace lve {
     FirstAPP::FirstAPP() {
-        loadModels();
+        loadGameObjects();
         createPipelineLayout();
         recreateSwapChain();
         createCommandBuffers();
@@ -32,18 +33,22 @@ namespace lve {
     }
 
 
-    void FirstAPP::loadModels() {
+    void FirstAPP::loadGameObjects() {
         std::vector<LveModel::Vertex> vertices{
         // 第一个三角形
-        {{-0.8f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{-0.2f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.0f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},};
+        auto lveModel = std::make_shared<LveModel>(lveDevice, vertices);
 
-        // 第二个三角形
-        {{0.2f, -0.5f}, {1.0f, 1.0f, 0.0f}},
-        {{0.8f, -0.5f}, {0.0f, 1.0f, 1.0f}},
-        {{0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}}};
-        lveModel = std::make_unique<LveModel>(lveDevice, vertices);
+        auto triangle = LveGameObject::createLveGameObject();
+        triangle.model = lveModel;
+        triangle.color = {0.1f, 0.8f, 0.1f};
+        triangle.translation2d.translation.x = 0.5f;
+        triangle.translation2d.scale.x = 1.0f;
+        triangle.translation2d.rotation = 0.3f * glm::two_pi<float>();
+
+        gameObjects.push_back(std::move(triangle));
     }
 
     void FirstAPP::createPipelineLayout() {
@@ -166,29 +171,36 @@ namespace lve {
             vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
 
 
-            lvePipeline->bind(commandBuffers[imageIndex]);
-            lveModel->bind(commandBuffers[imageIndex]);
+            renderGameObject(commandBuffers[imageIndex]);
 
-            for (int k = 0; k < 3; k++) {
-                SimplePushConstantData pushData{};
-                pushData.offset = {0.0f + k * 0.05f, 0.0f};
-                pushData.color = {0.0f, 0.0f, 0.2f + k * 0.05f};
+            vkCmdEndRenderPass(commandBuffers[imageIndex]);
+            if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
+                throw std::runtime_error("录制缓冲指令失败");
+            }
+    }
+
+    void FirstAPP::renderGameObject(VkCommandBuffer commandBuffer) {
+        lvePipeline->bind(commandBuffer);
+
+        for(auto& obj : gameObjects) {
+            obj.translation2d.rotation = glm::mod(obj.translation2d.rotation + 0.001f, glm::two_pi<float>());
+
+            SimplePushConstantData pushData{};
+                pushData.offset = obj.translation2d.translation;
+                pushData.color = obj.color;
+                pushData.transform = obj.translation2d.mat2();
 
                 vkCmdPushConstants(
-                    commandBuffers[imageIndex], 
+                    commandBuffer, 
                     pipelineLayout, 
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
                     0, 
                     sizeof(SimplePushConstantData), 
                     &pushData);
                     
-                lveModel->draw(commandBuffers[imageIndex]);
-            }
-
-            vkCmdEndRenderPass(commandBuffers[imageIndex]);
-            if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
-                throw std::runtime_error("录制缓冲指令失败");
-            }
+            obj.model->bind(commandBuffer);
+            obj.model->draw(commandBuffer);
+        }
     }
 
      void FirstAPP::drawFrame() {
