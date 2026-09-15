@@ -8,7 +8,8 @@
             "program": "${workspaceFolder}/build/Debug/vk_devcheck.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake: build Debug",
             "console": "integratedTerminal",
             "environment": []
         }

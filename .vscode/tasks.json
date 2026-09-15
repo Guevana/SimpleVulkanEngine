@@ -1,6 +1,18 @@
 {
     "tasks": [
         {
+            "label": "CMake: build Debug",
+            "type": "shell",
+            "command": "cmake --build build --config Debug",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": "build"
+        },
+        {
             "type": "cppbuild",
             "label": "C/C++: g++.exe 生成活动文件",
             "command": "D:\\MinGW\\mingw64\\bin\\g++.exe",

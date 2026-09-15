@@ -23,7 +23,7 @@
   "C_Cpp.default.compilerPath": "D:/VisualStudio/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe",
   "C_Cpp.default.intelliSenseMode": "windows-msvc-x64",
   "cmake.debugConfig": {
-    "cwd": "${workspaceFolder}/build"
+    "cwd": "${workspaceFolder}"
   },
   "glsllint.glslangValidatorArgs": [
     "-V",

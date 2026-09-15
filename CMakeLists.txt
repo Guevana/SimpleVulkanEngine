@@ -26,7 +26,7 @@ file(GLOB SHADER_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag"
 )
 set(SHADER_OUTPUTS)
-set(SHADER_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")
+set(SHADER_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 foreach(src IN LISTS SHADER_SOURCES)
   get_filename_component(shader "${src}" NAME)
   set(dst "${SHADER_OUTPUT_DIR}/${shader}.spv")
