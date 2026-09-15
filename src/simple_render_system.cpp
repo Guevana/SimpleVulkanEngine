@@ -66,13 +66,13 @@ void SimpleRenderSystem::renderGameObjects(
   const LveCamera &camera) {
   lvePipeline->bind(commandBuffer);
 
+  auto projectionView = camera.getProjection() * camera.getView();
+
   for(auto& obj : gameObjects) {
-    obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + 0.001f, glm::two_pi<float>());
-    obj.transform.rotation.x = glm::mod(obj.transform.rotation.y + 0.0005f, glm::two_pi<float>());
 
     SimplePushConstantData pushData{};
     pushData.color = obj.color;
-    pushData.transform = camera.getProjection() * obj.transform.mat4();
+    pushData.transform = projectionView * obj.transform.mat4();
 
     vkCmdPushConstants(
       commandBuffer,

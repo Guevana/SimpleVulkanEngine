@@ -17,6 +17,11 @@ void LveCamera::setOrthographicProjection(
   projectionMatrix[3][2] = -near / (far - near);
 }
 
+/**
+ * @brief 透视投影矩阵
+ * @param[in] near 近端视裁体，Z小于该值则被裁剪
+ * @param[in] far 远端视裁体，Z大于该值则被裁剪
+ */
 void LveCamera::setPerspectiveProjection(float fovy, float aspect, float near, float far) {
   assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
   const float tanHalfFovy = tan(fovy / 2.f);
