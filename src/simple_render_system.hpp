@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lve_camera.hpp"
 #include "lve_device.hpp"
 #include "lve_GameObject.hpp"
 #include "lve_Pipeline.hpp"
@@ -18,7 +19,9 @@ class SimpleRenderSystem {
   SimpleRenderSystem &operator=(const SimpleRenderSystem &) = delete;
 
   void renderGameObjects(
-      VkCommandBuffer commandBuffer, std::vector<LveGameObject> &gameObjects);
+      VkCommandBuffer commandBuffer, 
+      std::vector<LveGameObject> &gameObjects, 
+      const LveCamera &camera);
 
  private:
   void createPipelineLayout();
