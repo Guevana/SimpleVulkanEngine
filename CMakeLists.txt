@@ -4,6 +4,7 @@ project(vk_devcheck LANGUAGES CXX)
 find_package(Vulkan REQUIRED COMPONENTS glslc)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(tinyobjloader CONFIG REQUIRED)
 
 # 通配符匹配
 file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS
@@ -13,7 +14,7 @@ add_executable(vk_devcheck ${APP_SOURCES})
 
 target_compile_features(vk_devcheck PRIVATE cxx_std_20)
 set_target_properties(vk_devcheck PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(vk_devcheck PRIVATE Vulkan::Vulkan glfw glm::glm)
+target_link_libraries(vk_devcheck PRIVATE Vulkan::Vulkan glfw glm::glm tinyobjloader::tinyobjloader)
 if(MSVC)
   target_compile_options(vk_devcheck PRIVATE /utf-8 /W4)
 else()

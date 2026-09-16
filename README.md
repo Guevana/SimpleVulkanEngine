@@ -39,12 +39,13 @@
 vulkan
 glfw3
 glm
+tinyobjloader
 ```
 
 安装依赖示例：
 
 ```powershell
-vcpkg install vulkan glfw3 glm --triplet x64-windows
+vcpkg install vulkan glfw3 glm tinyobjloader --triplet x64-windows
 ```
 
 ## 构建与运行

@@ -1,6 +1,7 @@
 {
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": true,
+  "cmake.exportCompileCommandsFile": true,
   "cmake.buildBeforeRun": true,
   "terminal.integrated.defaultProfile.windows": "PowerShell UTF-8",
   "terminal.integrated.profiles.windows": {
@@ -32,5 +33,15 @@
   ],
   "files.exclude": {
     "**/build": true
+  },
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.git/**": true,
+    "**/*.spv": true
+  },
+  "search.exclude": {
+    "**/build/**": true,
+    "**/.git/**": true,
+    "**/*.spv": true
   }
 }
