@@ -27,6 +27,7 @@ class LveSwapChain {
   VkRenderPass getRenderPass() { return renderPass; }
   VkImageView getImageView(int index) { return swapChainImageViews[index]; }
   size_t imageCount() { return swapChainImages.size(); }
+  uint32_t minImageCount() const { return minimumImageCount; }
   VkFormat getSwapChainImageFormat() { return swapChainImageFormat; }
   VkExtent2D getSwapChainExtent() { return swapChainExtent; }
   uint32_t width() { return swapChainExtent.width; }
@@ -62,6 +63,7 @@ class LveSwapChain {
   VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
   VkFormat swapChainImageFormat;
+  uint32_t minimumImageCount{2};
   VkFormat swapChainDepthFormat;
   VkExtent2D swapChainExtent;
 

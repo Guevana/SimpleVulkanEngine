@@ -2,6 +2,7 @@
 
 // std
 #include <array>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -34,6 +35,9 @@ void LveSwapChain::init()
 }
 
 LveSwapChain::~LveSwapChain() {
+  for (auto framebuffer : swapChainFramebuffers) {
+    vkDestroyFramebuffer(device.device(), framebuffer, nullptr);
+  }
   for (auto imageView : swapChainImageViews) {
     vkDestroyImageView(device.device(), imageView, nullptr);
   }
@@ -50,17 +54,15 @@ LveSwapChain::~LveSwapChain() {
     vkFreeMemory(device.device(), depthImageMemorys[i], nullptr);
   }
 
-  for (auto framebuffer : swapChainFramebuffers) {
-    vkDestroyFramebuffer(device.device(), framebuffer, nullptr);
-  }
-
   vkDestroyRenderPass(device.device(), renderPass, nullptr);
 
   // cleanup synchronization objects
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    vkDestroySemaphore(device.device(), renderFinishedSemaphores[i], nullptr);
     vkDestroySemaphore(device.device(), imageAvailableSemaphores[i], nullptr);
     vkDestroyFence(device.device(), inFlightFences[i], nullptr);
+  }
+  for (auto semaphore : renderFinishedSemaphores) {
+    vkDestroySemaphore(device.device(), semaphore, nullptr);
   }
 }
 
@@ -101,7 +103,8 @@ VkResult LveSwapChain::submitCommandBuffers(const VkCommandBuffer *buffers, uint
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = buffers;
 
-  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+  // Presentation completion follows acquired images, not frame submission fences.
+  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[*imageIndex]};
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -138,7 +141,12 @@ void LveSwapChain::createSwapChain()
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
     VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
-    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+    minimumImageCount = std::max(2u, swapChainSupport.capabilities.minImageCount);
+    if (swapChainSupport.capabilities.maxImageCount != 0 &&
+        swapChainSupport.capabilities.maxImageCount < minimumImageCount) {
+      throw std::runtime_error("ImGui requires a surface supporting at least two swapchain images");
+    }
+    uint32_t imageCount = std::max(minimumImageCount, swapChainSupport.capabilities.minImageCount + 1);
     if (swapChainSupport.capabilities.maxImageCount > 0 &&
         imageCount > swapChainSupport.capabilities.maxImageCount)
     {
@@ -216,8 +224,9 @@ void LveSwapChain::createImageViews() {
 }
 
 void LveSwapChain::createRenderPass() {
+  swapChainDepthFormat = findDepthFormat();
   VkAttachmentDescription depthAttachment{};
-  depthAttachment.format = findDepthFormat();
+  depthAttachment.format = swapChainDepthFormat;
   depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -299,7 +308,7 @@ void LveSwapChain::createFramebuffers() {
 }
 
 void LveSwapChain::createDepthResources() {
-  VkFormat depthFormat = findDepthFormat();
+  VkFormat depthFormat = swapChainDepthFormat;
   VkExtent2D frameSwapChainExtent = getSwapChainExtent();
 
   depthImages.resize(imageCount());
@@ -348,7 +357,7 @@ void LveSwapChain::createDepthResources() {
 
 void LveSwapChain::createSyncObjects() {
   imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-  renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+  renderFinishedSemaphores.resize(imageCount());
   inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
   imagesInFlight.resize(imageCount(), VK_NULL_HANDLE);
 
@@ -362,10 +371,13 @@ void LveSwapChain::createSyncObjects() {
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     if (vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) !=
             VK_SUCCESS ||
-        vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) !=
-            VK_SUCCESS ||
         vkCreateFence(device.device(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
       throw std::runtime_error("failed to create synchronization objects for a frame!");
+    }
+  }
+  for (auto& semaphore : renderFinishedSemaphores) {
+    if (vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphore) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create presentation semaphore!");
     }
   }
 }

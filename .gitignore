@@ -17,6 +17,11 @@ compile_commands.json
 *.user
 *.suo
 
+# Agent产物
+tests/
+# 面向AI的文档系统，暂时不进行跟踪
+docs/
+
 # 系统
 Thumbs.db
 desktop.ini

@@ -13,13 +13,17 @@ LveRenderer::LveRenderer(LveWindow& window, LveDevice& device)
   createCommandBuffers();
 }
 
-LveRenderer::~LveRenderer() { freeCommandBuffers(); }
+LveRenderer::~LveRenderer() {
+  vkDeviceWaitIdle(lveDevice.device());
+  freeCommandBuffers();
+}
 
 void LveRenderer::recreateSwapChain() {
   auto extent = lveWindow.getExtent();
   while (extent.width == 0 || extent.height == 0) {
-    extent = lveWindow.getExtent();
+    if (lveWindow.shouldClose()) return;
     glfwWaitEvents();
+    extent = lveWindow.getExtent();
   }
   vkDeviceWaitIdle(lveDevice.device());
 
@@ -33,6 +37,8 @@ void LveRenderer::recreateSwapChain() {
       throw std::runtime_error("Swap chain image(or depth) format has changed!");
     }
   }
+  ++swapChainGeneration;
+  currentFrameIndex = 0;
 }
 
 void LveRenderer::createCommandBuffers() {
@@ -61,6 +67,13 @@ void LveRenderer::freeCommandBuffers() {
 
 VkCommandBuffer LveRenderer::beginFrame() {
   assert(!isFrameStarted && "Can't call beginFrame while already in progress");
+
+  if (lveWindow.shouldClose()) return nullptr;
+  const auto extent = lveWindow.getExtent();
+  if (extent.width == 0 || extent.height == 0) {
+    recreateSwapChain();
+    return nullptr;
+  }
 
   auto result = lveSwapChain->acquireNextImage(&currentImageIndex);
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -92,6 +105,8 @@ void LveRenderer::endFrame() {
   }
 
   auto result = lveSwapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
+  isFrameStarted = false;
+  currentFrameIndex = (currentFrameIndex + 1) % LveSwapChain::MAX_FRAMES_IN_FLIGHT;
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
       lveWindow.wasWindowResized()) {
     lveWindow.resetWindowResizedFlag();
@@ -100,8 +115,6 @@ void LveRenderer::endFrame() {
     throw std::runtime_error("failed to present swap chain image!");
   }
 
-  isFrameStarted = false;
-  currentFrameIndex = (currentFrameIndex + 1) % LveSwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
 void LveRenderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {
@@ -119,7 +132,7 @@ void LveRenderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {
   renderPassInfo.renderArea.extent = lveSwapChain->getSwapChainExtent();
 
   std::array<VkClearValue, 2> clearValues{};
-  clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
+  for (size_t i = 0; i < clearColor.size(); ++i) clearValues[0].color.float32[i] = clearColor[i];
   clearValues[1].depthStencil = {1.0f, 0};
   renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
   renderPassInfo.pClearValues = clearValues.data();

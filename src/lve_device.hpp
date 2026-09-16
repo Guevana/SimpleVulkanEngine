@@ -41,6 +41,9 @@ class LveDevice {
 
   VkCommandPool getCommandPool() { return commandPool; }
   VkDevice device() { return device_; }
+  VkInstance getInstance() const { return instance; }
+  VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+  static constexpr uint32_t apiVersion() { return VK_API_VERSION_1_0; }
   VkSurfaceKHR surface() { return surface_; }
   VkQueue graphicsQueue() { return graphicsQueue_; }
   VkQueue presentQueue() { return presentQueue_; }

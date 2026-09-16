@@ -6,12 +6,16 @@
 namespace lve {
 
 void KeyboardMovementController::moveInPlaneXZ(
-    GLFWwindow* window, float dt, LveGameObject& gameObject) {
+    GLFWwindow* window, float dt, LveGameObject& gameObject,
+    bool mouseEnabled, bool keyboardEnabled) {
+  const auto pressed = [window, keyboardEnabled](int key) {
+    return keyboardEnabled && glfwGetKey(window, key) == GLFW_PRESS;
+  };
   glm::vec3 rotate{0};
-  if (glfwGetKey(window, keys.lookRight) == GLFW_PRESS) rotate.y += 1.f;
-  if (glfwGetKey(window, keys.lookLeft) == GLFW_PRESS) rotate.y -= 1.f;
-  if (glfwGetKey(window, keys.lookUp) == GLFW_PRESS) rotate.x += 1.f;
-  if (glfwGetKey(window, keys.lookDown) == GLFW_PRESS) rotate.x -= 1.f;
+  if (pressed(keys.lookRight)) rotate.y += 1.f;
+  if (pressed(keys.lookLeft)) rotate.y -= 1.f;
+  if (pressed(keys.lookUp)) rotate.x += 1.f;
+  if (pressed(keys.lookDown)) rotate.x -= 1.f;
 
   double mouseX;
   double mouseY;
@@ -31,8 +35,12 @@ void KeyboardMovementController::moveInPlaneXZ(
   if (glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon()) {
     gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
   }
-  gameObject.transform.rotation.y += mouseSensitivity * mouseDeltaX;
-  gameObject.transform.rotation.x += mouseSensitivity * mouseDeltaY;
+  if (mouseEnabled) {
+    gameObject.transform.rotation.y += mouseSensitivity * mouseDeltaX;
+    gameObject.transform.rotation.x += mouseSensitivity * mouseDeltaY;
+  } else {
+    resetMouse();
+  }
 
   // limit pitch values between about +/- 85ish degrees
   gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.5f, 1.5f);
@@ -44,12 +52,12 @@ void KeyboardMovementController::moveInPlaneXZ(
   const glm::vec3 upDir{0.f, -1.f, 0.f};
 
   glm::vec3 moveDir{0.f};
-  if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir;
-  if (glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) moveDir -= forwardDir;
-  if (glfwGetKey(window, keys.moveRight) == GLFW_PRESS) moveDir += rightDir;
-  if (glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) moveDir -= rightDir;
-  if (glfwGetKey(window, keys.moveUp) == GLFW_PRESS) moveDir += upDir;
-  if (glfwGetKey(window, keys.moveDown) == GLFW_PRESS) moveDir -= upDir;
+  if (pressed(keys.moveForward)) moveDir += forwardDir;
+  if (pressed(keys.moveBackward)) moveDir -= forwardDir;
+  if (pressed(keys.moveRight)) moveDir += rightDir;
+  if (pressed(keys.moveLeft)) moveDir -= rightDir;
+  if (pressed(keys.moveUp)) moveDir += upDir;
+  if (pressed(keys.moveDown)) moveDir -= upDir;
 
   if (glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon()) {
     gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
