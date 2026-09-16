@@ -43,7 +43,13 @@ LveBuffer::LveBuffer(
       memoryPropertyFlags{memoryPropertyFlags} {
   alignmentSize = getAlignment(instanceSize, minOffsetAlignment);
   bufferSize = alignmentSize * instanceCount;
-  device.createBuffer(bufferSize, usageFlags, memoryPropertyFlags, buffer, memory);
+  try {
+    device.createBuffer(bufferSize, usageFlags, memoryPropertyFlags, buffer, memory);
+  } catch (...) {
+    vkDestroyBuffer(device.device(), buffer, nullptr);
+    vkFreeMemory(device.device(), memory, nullptr);
+    throw;
+  }
 }
 
 LveBuffer::~LveBuffer() {

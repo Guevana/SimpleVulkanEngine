@@ -7,6 +7,7 @@
 #include "simple_render_system.hpp"
 #include "lve_imgui_layer.hpp"
 #include "debug_ui.hpp"
+#include "lve_device_idle_guard.hpp"
 #include <imgui.h>
 #include <algorithm>
 
@@ -29,7 +30,7 @@ namespace lve {
         loadGameObjects();
     }
 
-    FirstAPP::~FirstAPP() {}
+    FirstAPP::~FirstAPP() { vkDeviceWaitIdle(lveDevice.device()); }
 
     void FirstAPP::run() {
         std::vector<std::unique_ptr<LveBuffer>> uboBuffers(LveSwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -50,14 +51,17 @@ namespace lve {
         std::vector<VkDescriptorSet> globalDescriptorSets(LveSwapChain::MAX_FRAMES_IN_FLIGHT);
         for (int i = 0; i < globalDescriptorSets.size(); i++) {
             auto bufferInfo = uboBuffers[i]->descriptorInfo();
-            LveDescriptorWriter(*globalSetLayout, *globalPool)
+            if (!LveDescriptorWriter(*globalSetLayout, *globalPool)
                 .writeBuffer(0, &bufferInfo)
-                .build(globalDescriptorSets[i]);
+                .build(globalDescriptorSets[i])) {
+                throw std::runtime_error("failed to allocate global descriptor set");
+            }
         }
 
 
 
-        SimpleRenderSystem simpleRenderSystem{lveDevice, lveRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+        SimpleRenderSystem simpleRenderSystem{lveDevice, lveRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(),
+            materialSetLayout->getDescriptorSetLayout(), defaultMaterial};
         LveImguiLayer imguiLayer{lveWindow, lveDevice, lveRenderer.getSwapChainInfo()};
         DebugUI debugUI{};
         LveCamera camera{};
@@ -67,6 +71,8 @@ namespace lve {
 
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto captureRevision = lveWindow.captureRevision();
+        // Wait before frame resources unwind on any exit.
+        LveDeviceIdleGuard idleGuard{lveDevice};
         
 
         while (!lveWindow.shouldClose()) {
@@ -130,13 +136,50 @@ namespace lve {
 }
 
     void FirstAPP::loadGameObjects() {
-        std::shared_ptr<LveModel> lveModel = LveModel::createModelFromFile(lveDevice, "models/smooth_vase.obj");
+        std::array<uint8_t, 4> white{255, 255, 255, 255};
+        std::vector<std::shared_ptr<LveTexture>> textures;
+        textures.push_back(LveTexture::createTextureFromRgba(lveDevice, 1, 1, white));
+        textures.push_back(LveTexture::createTextureFromFile(lveDevice, "textures/uv_quadrants.png"));
+        materialSetLayout = LveDescriptorSetLayout::Builder(lveDevice)
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build();
+        const auto materialCount = static_cast<uint32_t>(textures.size());
+        materialPool = LveDescriptorPool::Builder(lveDevice).setMaxSets(materialCount)
+            .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, materialCount).build();
+        defaultMaterial = std::make_shared<LveMaterial>(*materialSetLayout, *materialPool, textures[0]);
+        auto imageMaterial = std::make_shared<LveMaterial>(*materialSetLayout, *materialPool, textures[1]);
+
+        std::shared_ptr<LveModel> lveModel = LveModel::createModelFromFile(lveDevice, "models/T-Rex.obj");
 
         auto gameObject = LveGameObject::createLveGameObject();
         gameObject.model = lveModel;
-        gameObject.transform.translation = {0.0f, 0.0f, 2.5f};
-        gameObject.transform.scale = {0.5f, 0.5f, 0.5f};
+        gameObject.transform.translation = {0.0f, 2.0f, 5.0f};
+        gameObject.transform.scale = {0.01f, 0.01f, 0.01f};
+        gameObject.transform.rotation = {glm::radians(180.0f), 0.0f, 0.0f};
         gameObjects.push_back(std::move(gameObject));
+
+        
+        LveModel::Builder quad;
+        quad.vertices = {
+            {{-0.5f, -0.5f, 0.f}, {1.f, 1.f, 1.f}, {0.f, 0.f, -1.f}, {0.f, 0.f}},
+            {{ 0.5f, -0.5f, 0.f}, {1.f, 1.f, 1.f}, {0.f, 0.f, -1.f}, {1.f, 0.f}},
+            {{ 0.5f,  0.5f, 0.f}, {1.f, 1.f, 1.f}, {0.f, 0.f, -1.f}, {1.f, 1.f}},
+            {{-0.5f,  0.5f, 0.f}, {1.f, 1.f, 1.f}, {0.f, 0.f, -1.f}, {0.f, 1.f}}};
+        quad.indices = {0, 1, 2, 2, 3, 0};
+        auto panel = LveGameObject::createLveGameObject();
+        panel.model = std::make_shared<LveModel>(lveDevice, quad);
+        panel.material = imageMaterial;
+        panel.transform.translation = {0.8f, -0.2f, 2.5f};
+        panel.transform.scale = {0.65f, 0.65f, 0.65f};
+        gameObjects.push_back(std::move(panel));
+
+        for (auto &vertex : quad.vertices) vertex.uv *= 2.f;
+        auto repeatedPanel = LveGameObject::createLveGameObject();
+        repeatedPanel.model = std::make_shared<LveModel>(lveDevice, quad);
+        repeatedPanel.material = imageMaterial;
+        repeatedPanel.transform.translation = {0.8f, 0.55f, 2.5f};
+        repeatedPanel.transform.scale = {0.65f, 0.65f, 0.65f};
+        gameObjects.push_back(std::move(repeatedPanel));
+        
     }
 
 }

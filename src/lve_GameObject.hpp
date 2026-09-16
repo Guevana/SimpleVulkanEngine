@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lve_model.hpp"
+#include "lve_material.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -33,6 +34,7 @@ namespace lve {
 
         const id_t id;
         std::shared_ptr<LveModel> model;
+        std::shared_ptr<LveMaterial> material;
         glm::vec3 color;
         TransformComponent transform{};
 

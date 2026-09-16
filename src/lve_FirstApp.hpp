@@ -42,6 +42,9 @@ namespace lve{
         LveRenderer lveRenderer{lveWindow, lveDevice};
         
         std::unique_ptr<LveDescriptorPool> globalPool{};
+        std::unique_ptr<LveDescriptorSetLayout> materialSetLayout;
+        std::unique_ptr<LveDescriptorPool> materialPool;
+        std::shared_ptr<LveMaterial> defaultMaterial;
         std::vector<LveGameObject> gameObjects;
     };
 

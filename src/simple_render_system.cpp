@@ -18,23 +18,31 @@ struct SimplePushConstantData {
   glm::mat4 normalMatrix{1.0f};
 };
 
-SimpleRenderSystem::SimpleRenderSystem(LveDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
-    : lveDevice{device} {
-  createPipelineLayout(globalSetLayout);
-  createPipeline(renderPass);
+SimpleRenderSystem::SimpleRenderSystem(LveDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout,
+    VkDescriptorSetLayout materialSetLayout, std::shared_ptr<LveMaterial> defaultMaterial)
+    : lveDevice{device}, defaultMaterial{std::move(defaultMaterial)} {
+  if (!this->defaultMaterial) throw std::invalid_argument("default material is required");
+  createPipelineLayout(globalSetLayout, materialSetLayout);
+  try {
+    createPipeline(renderPass);
+  } catch (...) {
+    vkDestroyPipelineLayout(lveDevice.device(), pipelineLayout, nullptr);
+    throw;
+  }
 }
 
 SimpleRenderSystem::~SimpleRenderSystem() {
+  lvePipeline.reset();
   vkDestroyPipelineLayout(lveDevice.device(), pipelineLayout, nullptr);
 }
 
-void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout materialSetLayout) {
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   pushConstantRange.offset = 0;
   pushConstantRange.size = sizeof(SimplePushConstantData);
 
-  std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalSetLayout};
+  std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalSetLayout, materialSetLayout};
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -77,6 +85,10 @@ void SimpleRenderSystem::renderGameObjects(
     nullptr);
     
   for(auto& obj : gameObjects) {
+    if (!obj.model) continue;
+    const auto materialSet = (obj.material ? obj.material : defaultMaterial)->getDescriptorSet();
+    vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout, 1, 1, &materialSet, 0, nullptr);
 
     SimplePushConstantData pushData{};
     pushData.modelMatrix = obj.transform.mat4();

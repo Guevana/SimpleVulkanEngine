@@ -43,12 +43,13 @@ glfw3
 glm
 tinyobjloader
 imgui[glfw-binding,vulkan-binding]
+stb
 ```
 
 安装依赖示例：
 
 ```powershell
-vcpkg install vulkan glfw3 glm tinyobjloader "imgui[glfw-binding,vulkan-binding]" --triplet x64-windows
+vcpkg install vulkan glfw3 glm tinyobjloader stb "imgui[glfw-binding,vulkan-binding]" --triplet x64-windows
 ```
 
 沿用 vcpkg classic 模式。当前接入基线为上游 **ImGui 1.92.9b**，vcpkg 包版本显示为 `1.92.9`（port 使用带 `b` 后缀的源码）。本次验证的 vcpkg commit 为 `a1cae005c39be7b18ba319fced856b68d7276271`。使用旧版 port 时先更新到包含该版本的 vcpkg；此实现要求 `IMGUI_VERSION_NUM >= 19291`。
@@ -143,3 +144,43 @@ ctest --test-dir build -C Release --output-on-failure
 	├── lve_GameObject.hpp  # 游戏对象与变换
 	└── simple_render_system.*
 ```
+
+## 图像纹理与材质
+
+`LveTexture` 负责 RGBA8 解码、同步 staging 上传、Image/View/Sampler 的 RAII 生命周期；
+`LveMaterial` 共享持有纹理并创建只读描述符。模型仍只负责几何数据，游戏对象可共享材质。
+
+- set 0 / binding 0：现有逐帧全局 UBO。
+- set 1 / binding 0：每材质一份 Combined Image Sampler，跨帧共享。
+- 未设置 `LveGameObject::material` 的对象使用默认 1×1 白纹理，保留顶点颜色和现有光照。
+- 默认 sRGB、线性过滤、Repeat、单 mip；输出保持不透明。`Config::colorSpace = ColorSpace::Linear` 使用 UNORM，适合后续数据贴图。
+- 支持 Nearest/Linear 过滤，以及 Repeat、Mirrored Repeat、Clamp to Edge/Border 寻址；Border 固定为不透明白色。
+
+```cpp
+std::shared_ptr<lve::LveTexture> texture =
+    lve::LveTexture::createTextureFromFile(device, "textures/uv_quadrants.png");
+auto material = std::make_shared<lve::LveMaterial>(materialLayout, materialPool, texture);
+object.material = material;
+```
+
+内存接口 `createTextureFromRgba(device, width, height, std::span<const uint8_t>, config)`
+要求恰好 `width * height * 4` 字节，返回后不保留输入内存。两个工厂均返回 `unique_ptr`，可按场景需要转为 `shared_ptr`。
+文件读取/解码/上传失败会抛出带路径及失败阶段的异常，不将损坏图片静默替换为白纹理。
+
+UV 约定为左上原点：stb 不翻转像素，OBJ 导入时对有效纹理坐标执行 `(u, 1-v)`；缺失 UV 为零。
+程序创建的网格直接使用此约定。图片默认按 sRGB 解码采样后与线性光照和顶点颜色相乘。
+运行工作目录必须为项目根目录，资源路径相对于工作目录，不相对于可执行文件。
+
+示例保留白材质花瓶，新增两个共享图片材质的面板：上方面板使用 0–1 UV，下方面板使用 0–2 UV。
+自制诊断图 `textures/uv_quadrants.png` 左上红、右上绿、左下蓝、右下黄，可检查方向与重复寻址。
+
+应用持有材质布局、按材质数量分配的池以及场景资源。布局和池必须比材质活得更久；
+渲染完成前不能销毁纹理或重置池。`LveDeviceIdleGuard` 在正常及异常退出渲染循环时等待 GPU，
+随后才释放帧资源。首版只在初始化阶段同步加载，不支持运行中修改材质描述符。
+
+后续 OBJ/MTL 扩展应在资产加载层解析 `map_Kd` 和相对路径，通过子网格的
+`firstIndex/indexCount/materialIndex` 切换 set 1；模型不持有图片路径或承担图像解码。
+当前不包含 MTL 自动加载、子网格材质、mipmap、PBR、透明混合、全局缓存和异步上传。
+
+启用 `LVE_BUILD_TESTS` 后，`texture_smoke` 会测试加载失败、资源生命周期、颜色空间、
+实际 GPU 像素采样结果、材质切换和窗口缩放。详见 [验证记录](docs/validation.md)。

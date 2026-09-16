@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include <set>
+#include <stdexcept>
 #include <unordered_set>
 
 namespace lve {
@@ -425,7 +426,9 @@ void LveDevice::createBuffer(
     throw std::runtime_error("failed to allocate vertex buffer memory!");
   }
 
-  vkBindBufferMemory(device_, buffer, bufferMemory, 0);
+  if (vkBindBufferMemory(device_, buffer, bufferMemory, 0) != VK_SUCCESS) {
+    throw std::runtime_error("failed to bind buffer memory!");
+  }
 }
 
 VkCommandBuffer LveDevice::beginSingleTimeCommands() {
@@ -435,27 +438,44 @@ VkCommandBuffer LveDevice::beginSingleTimeCommands() {
   allocInfo.commandPool = commandPool;
   allocInfo.commandBufferCount = 1;
 
-  VkCommandBuffer commandBuffer;
-  vkAllocateCommandBuffers(device_, &allocInfo, &commandBuffer);
+  VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+  if (vkAllocateCommandBuffers(device_, &allocInfo, &commandBuffer) != VK_SUCCESS) {
+    throw std::runtime_error("failed to allocate upload command buffer!");
+  }
 
   VkCommandBufferBeginInfo beginInfo{};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
+    throw std::runtime_error("failed to begin upload command buffer!");
+  }
   return commandBuffer;
 }
 
 void LveDevice::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
-  vkEndCommandBuffer(commandBuffer);
+  if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
+    throw std::runtime_error("failed to end upload command buffer!");
+  }
 
   VkSubmitInfo submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &commandBuffer;
 
-  vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(graphicsQueue_);
+  if (vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+    vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
+    throw std::runtime_error("failed to submit upload command buffer!");
+  }
+  const auto waitResult = vkQueueWaitIdle(graphicsQueue_);
+  if (waitResult != VK_SUCCESS) {
+    // Ensure pending work is quiescent (or the device is lost) before resource unwinding.
+    vkDeviceWaitIdle(device_);
+    vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
+    throw std::runtime_error("failed to wait for upload completion!");
+  }
 
   vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
 }

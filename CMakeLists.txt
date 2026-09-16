@@ -6,6 +6,7 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(Stb REQUIRED)
 
 # 通配符匹配
 file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS
@@ -15,6 +16,7 @@ add_executable(vk_devcheck ${APP_SOURCES})
 
 target_compile_features(vk_devcheck PRIVATE cxx_std_20)
 set_target_properties(vk_devcheck PROPERTIES CXX_EXTENSIONS OFF)
+target_include_directories(vk_devcheck PRIVATE ${Stb_INCLUDE_DIR})
 target_link_libraries(vk_devcheck PRIVATE Vulkan::Vulkan glfw glm::glm tinyobjloader::tinyobjloader imgui::imgui)
 if(MSVC)
   target_compile_options(vk_devcheck PRIVATE /utf-8 /W4)
@@ -61,4 +63,23 @@ if(LVE_BUILD_TESTS)
   add_test(NAME imgui_smoke COMMAND imgui_smoke)
   set_tests_properties(imgui_smoke PROPERTIES TIMEOUT 30
     FAIL_REGULAR_EXPRESSION "VUID-|Validation Error|ImGui Vulkan result:")
+endif()
+
+if(LVE_BUILD_TESTS)
+  add_executable(texture_smoke tests/texture_smoke.cpp
+    src/lve_Window.cpp src/lve_device.cpp src/lve_buffer.cpp src/lve_texture.cpp
+    src/lve_material.cpp src/lve_descriptors.cpp src/lve_model.cpp src/lve_GameObject.cpp
+    src/lve_camera.cpp src/lve_Pipeline.cpp src/simple_render_system.cpp
+    src/lve_renderer.cpp src/lve_swap_chain.cpp)
+  target_compile_features(texture_smoke PRIVATE cxx_std_20)
+  target_include_directories(texture_smoke PRIVATE src ${Stb_INCLUDE_DIR})
+  target_link_libraries(texture_smoke PRIVATE Vulkan::Vulkan glfw glm::glm tinyobjloader::tinyobjloader)
+  if(MSVC)
+    target_compile_options(texture_smoke PRIVATE /utf-8 /W4)
+  endif()
+  add_dependencies(texture_smoke shaders)
+  add_test(NAME texture_smoke COMMAND texture_smoke)
+  set_tests_properties(texture_smoke PROPERTIES TIMEOUT 60
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
 endif()
