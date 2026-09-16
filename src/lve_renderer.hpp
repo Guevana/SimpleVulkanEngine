@@ -6,10 +6,19 @@
 
 // std
 #include <cassert>
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
 namespace lve {
+struct SwapChainInfo {
+  uint64_t generation;
+  VkRenderPass renderPass;
+  uint32_t minImageCount;
+  uint32_t imageCount;
+};
+
 class LveRenderer {
  public:
   LveRenderer(LveWindow &window, LveDevice &device);
@@ -19,6 +28,12 @@ class LveRenderer {
   LveRenderer &operator=(const LveRenderer &) = delete;
 
   VkRenderPass getSwapChainRenderPass() const { return lveSwapChain->getRenderPass(); }
+  SwapChainInfo getSwapChainInfo() const {
+    return {swapChainGeneration, lveSwapChain->getRenderPass(),
+            lveSwapChain->minImageCount(), static_cast<uint32_t>(lveSwapChain->imageCount())};
+  }
+  const std::array<float, 4>& getClearColor() const { return clearColor; }
+  void setClearColor(const std::array<float, 4>& color) { clearColor = color; }
   float getAspectRadio() const {return lveSwapChain->extentAspectRatio(); }
 
   float getAspectRatio() const { return lveSwapChain->extentAspectRatio(); }
@@ -52,5 +67,7 @@ class LveRenderer {
   uint32_t currentImageIndex;
   int currentFrameIndex{0};
   bool isFrameStarted{false};
+  uint64_t swapChainGeneration{0};
+  std::array<float, 4> clearColor{0.01f, 0.01f, 0.01f, 1.f};
 };
 }  // namespace lve
